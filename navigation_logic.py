@@ -204,14 +204,22 @@ class sensor_data:
         if 0 <= obstacle_row < len(course_layout) and 0 <= obstacle_col < len(course_layout[0]):
             course_layout[obstacle_row][obstacle_col] = 1  # Mark obstacle on the map
             print(f"Obstacle detected at ({obstacle_row}, {obstacle_col}) and updated on the map.")
+            print_course_layout(current_position)
         else:
             print("Obstacle detected out of bounds. Map not updated.")
             
             
-def print_course_layout(course_layout):
-    """Prints the course layout using '·' for empty spaces and 'x' for obstacles with spacing."""
-    for row in course_layout:
-        print(" ".join("x" if cell == 1 else "·" for cell in row))
+def print_course_layout(current_position=None):
+    """Print the course layout and mark the current position."""
+    global course_layout
+
+    for row_idx, row in enumerate(course_layout):
+        for col_idx, cell in enumerate(row):
+            if current_position and (row_idx, col_idx) == current_position:
+                print("C", end=" ")  # Mark the current position
+            else:
+                print("x" if cell == 1 else "·", end=" ")
+        print()  # Newline after each row
     print()
     
     
@@ -304,6 +312,7 @@ while Running:
         
         
     while delivering:
+        print_course_layout()
         # Adjust our global position:
         global_orientation_angle = (global_orientation_angle + 180) % 360
         
