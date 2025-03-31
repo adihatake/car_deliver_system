@@ -1,4 +1,5 @@
 import time
+import Core_functs as bot
 
 objective = "pick-up"
 
@@ -13,8 +14,9 @@ def search_line():
     if IR_present:
       break
 
+# Follow black line until obstacle
 def follow_and_avoid():
-  while True
+  while IR_diode() == True:
     move_forward()
     time.sleep(1)
 
@@ -24,15 +26,30 @@ def follow_and_avoid():
     IR_present = IR_diode()
 
     if pay_load_present:
-      return "pay load present"
+      turn360()
 
-    elif obstacle_present:
+      time.sleep(1)
+
+      move_backwards()
+
+      pickup_payload()
+
+      return "pay load detected and picked up"
+
+    elif obstacle_in_front:
+      turnleft()
+
+      # Check for object before moving forward
+      if not parse_front_sensor():
+        move_forward()
+        time.sleep(1)
+
       return "obstacle present"
 
     elif IR_present:
       return "passed line"
 
-
+# Go around object
 def navigate_obstacle():
   turn_left()
 
@@ -69,34 +86,38 @@ DELIVERING = True
 
 
 
-while Running:
+def Main():
+  """
+      Main function
+  """
+  while Running:
 
-  while PICKING_UP:
-    state = follow_and_avoid()
+    while PICKING_UP:
+      state = follow_and_avoid()
 
-    if state == "pay load present":
-      pickup_payload()
-      break
+      if state == "pay load present":
+        pickup_payload()
+        break
 
-    elif state == "obstacle present":
-      navigate_obstacle()
+      elif state == "obstacle present":
+        navigate_obstacle()
 
-  while DELIVERING:
-    state = follow_and_avoid()
+    while DELIVERING:
+      state = follow_and_avoid()
 
-    if state == "passed line":
-      drop_off()
-      break
+      if state == "passed line":
+        drop_off()
+        break
 
-    elif state == "obstacle present":
-      navigate_obstacle()
-
-
+      elif state == "obstacle present":
+        navigate_obstacle()
 
 
 
 
 
-    
-    
-    
+
+
+      
+      
+      
