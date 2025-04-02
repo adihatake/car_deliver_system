@@ -1,89 +1,180 @@
 from hcsr04 import HCSR04 # Must have this library saved on Pico to work
-from machine import Pin, PWM, ADC
+from machine import Pin, PWM, ADC, I2C
+from imu import MPU6050
+
+import time
 from time import sleep
 
-def drive():
-    # === L298N Motor Driver ===
-    # Motor A
+
+"""
+Motor Control
+
+"""
+
+
+# Function to control Motor A
+def motor_a(direction = "stop", speed = 0):
+        
     motor_a_in1 = Pin(6, Pin.OUT)
     motor_a_in2 = Pin(7, Pin.OUT)
     motor_a_en = PWM(Pin(8))
     motor_a_en.freq(1000)
     motor_a_correction = 1.0 # Adjust so both motors have same speed
+        
+        
+    adjusted_speed = int(speed * motor_a_correction)  # Apply correction
+        
+    if direction == "forward":
+        motor_a_in1.value(0)
+        motor_a_in2.value(1)
+    elif direction == "backward":
+        motor_a_in1.value(1)
+        motor_a_in2.value(0)
+    else:  # Stop
+        motor_a_in1.value(0)
+        motor_a_in2.value(0)
+    motor_a_en.duty_u16(int(adjusted_speed * 65535 / 100))  # Speed: 0-100%
 
-    # Motor B
+# Function to control Motor B
+def motor_b(direction = "stop", speed = 0):
+
     motor_b_in3 = Pin(4, Pin.OUT)
     motor_b_in4 = Pin(3, Pin.OUT)
     motor_b_en = PWM(Pin(2))
     motor_b_en.freq(1000)
     motor_b_correction = 1.0 # Adjust so both motors have same speed
+        
+        
+        
+    adjusted_speed = int(speed * motor_b_correction)  # Apply correction
+    if direction == "forward":
+        motor_b_in3.value(1)
+        motor_b_in4.value(0)
+    elif direction == "backward":
+        motor_b_in3.value(0)
+        motor_b_in4.value(1)
+    else:  # Stop
+        motor_b_in3.value(0)
+        motor_b_in4.value(0)
+    motor_b_en.duty_u16(int(adjusted_speed * 65535 / 100))  # Speed: 0-100%
+    
+    
+def move_forward(run_time = 0.25, right_power = 50, left_power = 45.5):
+    # left motor
+    
+    ## standard values
+    motor_b("forward", left_power)
+    # right motor
+    motor_a("backward", right_power)
+        
+    sleep(run_time)
 
-    # Function to control Motor A
-    def motor_a(direction = "stop", speed = 0):
-        adjusted_speed = int(speed * motor_a_correction)  # Apply correction
-        if direction == "forward":
-            motor_a_in1.value(0)
-            motor_a_in2.value(1)
-        elif direction == "backward":
-            motor_a_in1.value(1)
-            motor_a_in2.value(0)
-        else:  # Stop
-            motor_a_in1.value(0)
-            motor_a_in2.value(0)
-        motor_a_en.duty_u16(int(adjusted_speed * 65535 / 100))  # Speed: 0-100%
-
-    # Function to control Motor B
-    def motor_b(direction = "stop", speed = 0):
-        adjusted_speed = int(speed * motor_b_correction)  # Apply correction
-        if direction == "forward":
-            motor_b_in3.value(1)
-            motor_b_in4.value(0)
-        elif direction == "backward":
-            motor_b_in3.value(0)
-            motor_b_in4.value(1)
-        else:  # Stop
-            motor_b_in3.value(0)
-            motor_b_in4.value(0)
-        motor_b_en.duty_u16(int(adjusted_speed * 65535 / 100))  # Speed: 0-100%
-
-
-    # Main code
-    motor_a("backward", 50)
-
-    sleep(2)
-
-    motor_b("forward", 50)
-
-    sleep(2)
-
-    # Turn off motor a using default values
+    # Turn off motors
     motor_a()
+    motor_b()
+    
+    sleep(1)
+    
+ 
+### cannot go lower than 40
+def turn_right(run_time = 0.54):
+    motor_a("forward", 40)
+    motor_b("forward", 40)
+    sleep(run_time)
+    
+    motor_a()
+    motor_b()
+    
+    sleep(1)
+    
+    
 
-    # Turn off motor b using set values
-    motor_b("stop", 0)
+def turn_left(run_time = 0.54):
+    motor_a("backward", 40)
+    motor_b("backward", 40)
+    sleep(run_time)
+    
+    motor_a()
+    motor_b()
+    
+    sleep(1)
 
-    return
+def turn360():
+    pass
+
+
+def move_backwards():
+    pass
+
+
+
+
 
 def read_sensor(trigger_pin, echo_pin):
     # Initialize sensor with trigger and echo pins
     sensor = HCSR04(trigger_pin, echo_pin)
-
-    try:
-        distance = sensor.distance_cm()
-        print('Distance:', distance, 'cm')
-        sleep(0.1) # sensor doesn't work well without delay
-    except OSError as ex:
-        print('ERROR getting distance:', ex)    
+    distance = sensor.distance_cm()
+    print('Distance:', distance, 'cm')
+    sleep(0.1) # sensor doesn't work well without delay 
 
     return distance
 
-# Reads the front sensor
-def read_front():
-    read_sensor(21,20)
 
-# Read the right sensor
-def read_right():
-    read_sensor(14,15)
+
+
+
+"""
+Initialize all sensors readings
+
+"""
+
+
+def parse_front_sensor():
+    """
+    Checks if there is an obstacle in front
+
+    """
+    
+    
+    front_distance = read_sensor(21,20)
+    
+    # if there is an obstacle in front, return True
+    if front_distance < 8:
+        return True
+    
+    # return false if there is no obstacle in front
+    else:
+        return False
+    
+    
+    
+def parse_right_sensor():
+    """
+    Checks if we have cleared the wall on the side
+
+    """
+    
+    right_distance = read_sensor(14,15)
+    
+    # checks if the distance detectec is greater than the point blank wall
+    # if it is, then we know that we have cleared the wall segment 
+    if right_distance > 20:
+        return True
+    
+    else:
+        return False
+
+def read_IMU():
+    i2c = I2C(1, scl=Pin(19), sda=Pin(18))
+    imu = MPU6050(i2c)
+    
+    with open('/imu_data.txt','a') as file:
+        file.write(str(imu.accel.x) + "\n")
+        file.close()
+    
+    return imu.accel.x
+
+
 
 def read_photodiode():
     ir = ADC(28)
@@ -92,11 +183,84 @@ def read_photodiode():
 
 def read_IR():
     line_sen = Pin(17, Pin.IN)
-
-    return line_sen.value()
+    
+    # if a black is detected, return True
+    if line_sen.value() == 0:
+        return True
+    else:
+        return False
+    
+    sleep(0.1)
 
 def read_reed():
     # Reed swich on pin 0 using internal pull down resistor, other wire of switch connects to 3.3V
     reed_switch = Pin(0, Pin.IN, Pin.PULL_DOWN)
+    
+    # if there is a magnet, return true
+    if reed_switch.value() == 1:
+        return True
+    else:
+        return False
+    
+    
+    
+    
+"""
+Define navigational logic
 
-    return reed_switch.value()
+"""
+
+
+
+def search_line():
+  while True:
+    move_forward()
+
+    # returns True or false
+    IR_present = read_IR()
+
+    if IR_present:
+      break
+
+# Follow black line until obstacle
+def follow_and_avoid():
+    move_forward()
+
+    # Check if we are approaching an obstacle and if there is a pay_load
+    obstacle_in_front = parse_front_sensor()
+    pay_load_present = read_reed()
+    IR_present = read_photodiode()
+
+    if pay_load_present:
+        return "pay load present"
+
+    elif obstacle_in_front:
+        print('obstacle detected')
+        return'obstacle detected'       
+          
+    elif IR_present:
+        return 'passed line'
+        
+            
+
+
+# Go around object
+def navigate_obstacle():
+  turn_left()
+
+  for i in range(2):
+      while True:
+          move_forward()
+          cleared_obstacle = parse_right_sensor()
+          
+          if cleared_obstacle:
+              break
+            
+      turn_right()
+      move_forward()
+      
+  search_line()
+  turn_left()            
+
+
+
